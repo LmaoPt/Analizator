@@ -2,22 +2,23 @@ import javax.swing.*;
 import java.awt.*;
 
 public class AnalyzerGUI extends JFrame {
-    private JTextArea input = new JTextArea(15, 60);
-    private JTextArea output = new JTextArea(5, 60);
-    private JButton checkBtn = new JButton("Проверить");
+    private JTextArea input = new JTextArea(20, 60);
+    private JTextArea output = new JTextArea(20, 60);
+    private JButton checkBtn = new JButton("Проверить код");
     private JButton gotoBtn = new JButton("Перейти к ошибке");
     private int lastErrPos = -1;
 
     public AnalyzerGUI() {
-        setTitle("Анализатор функций");
+        setTitle("Анализатор+Семантика");
         setDefaultCloseOperation(EXIT_ON_CLOSE);
-        setSize(700, 500);
-        input.setFont(new Font("Monospaced", Font.PLAIN, 14));
+        setLocationRelativeTo(null);
+        setSize(1000, 1000);
+        input.setFont(new Font("TimesNewRoman", Font.PLAIN, 18));
         input.setTabSize(4);
         output.setEditable(false);
 
         checkBtn.addActionListener(e -> check());
-        gotoBtn.addActionListener(e -> gotoError());
+        gotoBtn.addActionListener(e -> goError());
         gotoBtn.setEnabled(false);
 
         JPanel topPanel = new JPanel(new FlowLayout());
@@ -32,20 +33,26 @@ public class AnalyzerGUI extends JFrame {
 
     private void check() {
         String code = input.getText();
+        SemanticAnalizator.clear();
+
         Result r = Result.CheckFunctionDef.Check(code);
         lastErrPos = r.ErrPosition();
+
         String msg = "Позиция ошибки: " + lastErrPos + "\nСообщение: " + r.ErrMessage();
+        if (lastErrPos < 0) {
+            msg += "\n\n" + SemanticAnalizator.getTablesString();
+        }
+
         output.setText(msg);
         gotoBtn.setEnabled(lastErrPos >= 0);
         if (lastErrPos >= 0) {
-            gotoError(); // автоматически перейти (опционально)
+            goError();
         }
     }
 
-    private void gotoError() {
+    private void goError() {
         if (lastErrPos < 0) return;
         try {
-            // Определяем строку и колонку по позиции в тексте
             String text = input.getText();
             int line = 1, col = 1;
             for (int i = 0; i < lastErrPos && i < text.length(); i++) {
@@ -56,18 +63,16 @@ public class AnalyzerGUI extends JFrame {
                     col++;
                 }
             }
-            // Устанавливаем курсор и выделяем проблемный символ
             input.setCaretPosition(lastErrPos);
             input.moveCaretPosition(Math.min(lastErrPos + 1, text.length()));
             input.requestFocusInWindow();
-            // Дополнительно прокручиваем к видимой позиции
             try {
                 Rectangle rect = input.modelToView(lastErrPos);
                 if (rect != null) input.scrollRectToVisible(rect);
             } catch (Exception ignored) {}
-            output.append("\n→ Курсор перемещён к ошибке (строка " + line + ", колонка " + col + ")");
+            output.append("\n Курсор перемещён к ошибочке (строка " + line + ", колонка " + col + ")");
         } catch (Exception ex) {
-            output.append("\nНе удалось перейти к позиции");
+            output.append("\n Не удалось перейти к позиции");
         }
     }
 

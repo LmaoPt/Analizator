@@ -1,3 +1,5 @@
+import com.sun.nio.sctp.SendFailedNotification;
+
 import java.util.*;
 
 enum Err{
@@ -46,10 +48,11 @@ enum Err{
     TabExceptions,                              // ожидается tab
     AssignExceptions,                           // ожидается '='
     AssignIndentExceptions,                     // ожидается '=' или отступ
-    IntLongExceptions,                          // число содержит больше 10 цифр
     InvalidNumber,                              // ? некорректное число
     UnexpectedChar,                             // неожиданный символ
-    UnrecognizedError                           // неизвестная ошибка
+    UnrecognizedError,                          // неизвестная ошибка
+    IntLongExceptions,                          // число содержит больше 10 цифр
+    ReservedWordExceptions                      // идентификатор зарезервирован: def,return,int, set или float
 }
 
 class Result{
@@ -93,7 +96,6 @@ class Result{
             case Err.TabExceptions: return "ожидается tab ";
             case Err.AssignExceptions: return  "ожидается '=' ";
             case Err.AssignIndentExceptions: return  "ожидается '=' или отступ ";
-            case Err.IntLongExceptions: return  "число содержит больше 10 цифр ";
             case Err.InvalidNumber: return  "? некорректное число ";
             case Err.UnexpectedChar: return  "неожиданный символ ";
             case Err.UnrecognizedError: return  "неизвестная ошибка ";
@@ -113,6 +115,9 @@ class Result{
             case Err.DigitENewLineSignedExceptions: return "ожидается цифра, e/E, перенос строки или знак ";
             case Err.DigitNewLineSignedExceptions: return "ожидается цифра, перенос строки или знак ";
             case Err.ControlNewLineExceptions: return "ожидается буква из зарезервированного слова: return или перенос строки ";
+
+            case Err.IntLongExceptions: return  "число содержит больше 10 цифр ";
+            case Err.ReservedWordExceptions: return "идентификатор зарезервирован: def,return,int, set или float";
             default: return  "неизвестная ошибка ";
         }
     }
@@ -135,6 +140,7 @@ class Result{
         private static String _Str;
         private static Err _Err;
         private static int _ErrPos;
+        private static int tokenStart;
 
         private static void SetError (Err ErrorType, int ErrorPosition){
             _Err = ErrorType;
@@ -184,6 +190,7 @@ class Result{
                             break;
 
                         case EnumState.S5:
+                            tokenStart = _Pos;
                             if (Character.isLetter(_Str.charAt(_Pos)) || (_Str.charAt(_Pos) == '_'))  state = EnumState.S6;
                             else if (_Str.charAt(_Pos) == ' ') state = EnumState.S5;
                             else { SetError(Err.LetterUnderExceptions, _Pos); state = EnumState.Error; }
@@ -191,8 +198,28 @@ class Result{
 
                         case EnumState.S6:
                             if (Character.isLetterOrDigit (_Str.charAt(_Pos)) || (_Str.charAt(_Pos) == '_')) state = EnumState.S6;
-                            else if (_Str.charAt(_Pos) == '(') state = EnumState.S7;
-                            else if (_Str.charAt(_Pos) == ' ') state =  EnumState.S6b;
+                            else if (_Str.charAt(_Pos) == '(') {
+                                String name = _Str.substring(tokenStart, _Pos);
+                                if (SemanticAnalizator.isReserved(name)){
+                                    SetError(Err.ReservedWordExceptions, _Pos);
+                                    state = EnumState.Error;
+                                }
+                                else{
+                                    SemanticAnalizator.addIdentifiers(name, tokenStart);
+                                    state = EnumState.S7;
+                                }
+                            }
+                            else if (_Str.charAt(_Pos) == ' ') {
+                                String name = _Str.substring(tokenStart, _Pos);
+                                if (SemanticAnalizator.isReserved(name)){
+                                    SetError(Err.ReservedWordExceptions, _Pos);
+                                    state = EnumState.Error;
+                                }
+                                else{
+                                    SemanticAnalizator.addIdentifiers(name, tokenStart);
+                                    state =  EnumState.S6b;
+                                }
+                            }
                             else { SetError(Err.LetterDigitLParenExceptions,_Pos); state = EnumState.Error; }
                             break;
 
@@ -204,17 +231,60 @@ class Result{
 
                         case EnumState.S7:
                             if (_Str.charAt(_Pos) == ' ') state = EnumState.S7;
-                            else if (Character.isLetter(_Str.charAt(_Pos)) || (_Str.charAt(_Pos) == '_')) state = EnumState.S9;
+                            else if (Character.isLetter(_Str.charAt(_Pos)) || (_Str.charAt(_Pos) == '_')) {
+                                tokenStart = _Pos;
+                                state = EnumState.S9;
+                            }
                             else if (_Str.charAt(_Pos) == ')') state = EnumState.S8;
                             else { SetError(Err.LetterUnderRParenExceptions,_Pos); state = EnumState.Error; }
                             break;
 
                         case EnumState.S9:
                             if (Character.isLetterOrDigit(_Str.charAt(_Pos)) || (_Str.charAt(_Pos) == '_')) state = EnumState.S9;
-                            else if (_Str.charAt(_Pos) == ')') state =  EnumState.S8;
-                            else if (_Str.charAt(_Pos) == ':') state = EnumState.S10;
-                            else if (_Str.charAt(_Pos) == ' ') state = EnumState.S9b;
-                            else if (_Str.charAt( _Pos) == ',') state = EnumState.S22;
+                            else if (_Str.charAt(_Pos) == ')'){
+                                String name = _Str.substring(tokenStart, _Pos);
+                                if (SemanticAnalizator.isReserved(name)) {
+                                    SetError(Err.ReservedWordExceptions, _Pos);
+                                    state = EnumState.Error;
+                                }
+                                else {
+                                    SemanticAnalizator.addIdentifiers(name, tokenStart);
+                                    state =  EnumState.S8;
+                                }
+                            }
+                            else if (_Str.charAt(_Pos) == ':'){
+                                String name = _Str.substring(tokenStart, _Pos);
+                                if (SemanticAnalizator.isReserved(name)) {
+                                    SetError(Err.ReservedWordExceptions, _Pos);
+                                    state = EnumState.Error;
+                                }
+                                else {
+                                    SemanticAnalizator.addIdentifiers(name, tokenStart);
+                                    state = EnumState.S10;
+                                }
+                            }
+                            else if (_Str.charAt(_Pos) == ' '){
+                                String name = _Str.substring(tokenStart, _Pos);
+                                if (SemanticAnalizator.isReserved(name)) {
+                                    SetError(Err.ReservedWordExceptions, _Pos);
+                                    state = EnumState.Error;
+                                }
+                                else {
+                                    SemanticAnalizator.addIdentifiers(name, tokenStart);
+                                    state = EnumState.S9b;
+                                }
+                            }
+                            else if (_Str.charAt( _Pos) == ','){
+                                String name = _Str.substring(tokenStart, _Pos);
+                                if (SemanticAnalizator.isReserved(name)) {
+                                    SetError(Err.ReservedWordExceptions, _Pos);
+                                    state = EnumState.Error;
+                                }
+                                else {
+                                    SemanticAnalizator.addIdentifiers(name, tokenStart);
+                                    state = EnumState.S22;
+                                }
+                            }
                             else { SetError(Err.LetterDigitUnderRParenColonCommaExceptions, _Pos); state = EnumState.Error; }
                             break;
 
@@ -314,6 +384,7 @@ class Result{
                             break;
 
                         case EnumState.S25:
+                            tokenStart = _Pos;
                             if (_Str.charAt(_Pos) == 'r') state = EnumState.S52;
                             else if (Character.isLetter(_Str.charAt(_Pos)) || (_Str.charAt(_Pos) == '_')) state = EnumState.S26;
                             else { SetError(Err.LetterUnderExceptions, _Pos); state = EnumState.Error; }
@@ -322,13 +393,41 @@ class Result{
                         case EnumState.S26:
                             if ((Character.isLetterOrDigit(_Str.charAt(_Pos))|| (_Str.charAt(_Pos) == '_'))){
                                 state = EnumState.S26;
-                            } else if(_Str.charAt(_Pos) == ' '){
-                                state = EnumState.S26b;
-                            } else if(_Str.charAt(_Pos) == '['){
-                                state = EnumState.S27;
-                            } else if(_Str.charAt(_Pos) == '='){
-                                state = EnumState.S30;
-                            } else{
+                            }
+                            else if(_Str.charAt(_Pos) == ' '){
+                                String name = _Str.substring(tokenStart, _Pos);
+                                if (SemanticAnalizator.isReserved(name)) {
+                                    SetError(Err.ReservedWordExceptions, _Pos);
+                                    state = EnumState.Error;
+                                }
+                                else {
+                                    SemanticAnalizator.addIdentifiers(name, tokenStart);
+                                    state = EnumState.S26b;
+                                }
+                            }
+                            else if(_Str.charAt(_Pos) == '['){
+                                String name = _Str.substring(tokenStart, _Pos);
+                                if (SemanticAnalizator.isReserved(name)) {
+                                    SetError(Err.ReservedWordExceptions, _Pos);
+                                    state = EnumState.Error;
+                                }
+                                else {
+                                    SemanticAnalizator.addIdentifiers(name, tokenStart);
+                                    state = EnumState.S27;
+                                }
+                            }
+                            else if(_Str.charAt(_Pos) == '='){
+                                String name = _Str.substring(tokenStart, _Pos);
+                                if (SemanticAnalizator.isReserved(name)) {
+                                    SetError(Err.ReservedWordExceptions, _Pos);
+                                    state = EnumState.Error;
+                                }
+                                else {
+                                    SemanticAnalizator.addIdentifiers(name, tokenStart);
+                                    state = EnumState.S30;
+                                }
+                            }
+                            else{
                                 SetError(Err.LetterDigitUnderLBracketAssign, _Pos);
                                 state = EnumState.Error;
                             }
@@ -344,24 +443,81 @@ class Result{
                             }
                             break;
 
-                        case EnumState.S27, EnumState.S27b:
+                        case EnumState.S27:
                             if (_Str.charAt(_Pos) == ' ') state = EnumState.S27b;
-                            else if (Character.isLetterOrDigit(_Str.charAt(_Pos)) || _Str.charAt(_Pos) == '_') state = EnumState.S64;
-                            else if (_Str.charAt(_Pos) == '-') state = EnumState.S62;
-                            else if (Character.isDigit(_Str.charAt(_Pos))) state = EnumState.S28;
+                            else if (Character.isDigit(_Str.charAt(_Pos))) {
+                                tokenStart = _Pos;
+                                state = EnumState.S28;
+                            }
+                            else if (Character.isLetterOrDigit(_Str.charAt(_Pos)) || _Str.charAt(_Pos) == '_') {
+                                tokenStart = _Pos;
+                                state = EnumState.S64;
+                            }
+                            else if (_Str.charAt(_Pos) == '-') {
+                                tokenStart = _Pos;
+                                state = EnumState.S62;
+                            }
                             else { SetError(Err.LetterDigitUnderSignedException, _Pos); state = EnumState.Error; }
                             break;
 
-                        case EnumState.S62, EnumState.S62b:
+                        case EnumState.S27b:
+                            if (_Str.charAt(_Pos) == ' ') state = EnumState.S27b;
+                            else if (Character.isDigit(_Str.charAt(_Pos))) {
+                                tokenStart = _Pos;
+                                state = EnumState.S28;
+                            }
+                            else if (Character.isLetterOrDigit(_Str.charAt(_Pos)) || _Str.charAt(_Pos) == '_') {
+                                tokenStart = _Pos;
+                                state = EnumState.S64;
+                            }
+                            else if (_Str.charAt(_Pos) == '-') {
+                                tokenStart = _Pos;
+                                state = EnumState.S62;
+                            }
+                            else { SetError(Err.LetterDigitUnderSignedException, _Pos); state = EnumState.Error; }
+                            break;
+
+                        case EnumState.S62:
+                            if (_Str.charAt(_Pos) == ' ') state = EnumState.S62b;
+                            else if (Character.isDigit(_Str.charAt(_Pos))) state = EnumState.S28;
+                            else { SetError(Err.DigitExceptions, _Pos); state = EnumState.Error; }
+                            break;
+
+                        case EnumState.S62b:
                             if (_Str.charAt(_Pos) == ' ') state = EnumState.S62b;
                             else if (Character.isDigit(_Str.charAt(_Pos))) state = EnumState.S28;
                             else { SetError(Err.DigitExceptions, _Pos); state = EnumState.Error; }
                             break;
 
                         case EnumState.S64:
-                            if (Character.isLetterOrDigit(_Str.charAt(_Pos)) || _Str.charAt(_Pos) == '_') state = EnumState.S64;
-                            else if (_Str.charAt(_Pos) == ' ') state = EnumState.S64b;
-                            else if (_Str.charAt(_Pos) == ']') state = EnumState.S29;
+                            if (Character.isLetterOrDigit(_Str.charAt(_Pos)) || _Str.charAt(_Pos) == '_') {
+                                if (Character.isWhitespace(_Str.charAt(tokenStart))){
+                                    tokenStart = _Pos;
+                                }
+                                state = EnumState.S64;
+                            }
+                            else if (_Str.charAt(_Pos) == ' ') {
+                                String name = _Str.substring(tokenStart, _Pos);
+                                if (SemanticAnalizator.isReserved(name)) {
+                                    SetError(Err.ReservedWordExceptions, _Pos);
+                                    state = EnumState.Error;
+                                }
+                                else {
+                                    SemanticAnalizator.addIdentifiers(name, tokenStart);
+                                    state = EnumState.S64b;
+                                }
+                            }
+                            else if (_Str.charAt(_Pos) == ']') {
+                                String name = _Str.substring(tokenStart, _Pos);
+                                if (SemanticAnalizator.isReserved(name)) {
+                                    SetError(Err.ReservedWordExceptions, _Pos);
+                                    state = EnumState.Error;
+                                }
+                                else {
+                                    SemanticAnalizator.addIdentifiers(name, tokenStart);
+                                    state = EnumState.S29;
+                                }
+                            }
                             else { SetError(Err.LetterDigitUnderRBracketExceptions, _Pos); state = EnumState.Error; }
                             break;
 
@@ -372,9 +528,25 @@ class Result{
                             break;
 
                         case EnumState.S28:
-                            if (Character.isDigit(_Str.charAt(_Pos))) state = EnumState.S28;
-                            else if (_Str.charAt(_Pos) == ' ') state = EnumState.S28b;
-                            else if (_Str.charAt(_Pos) == ']') state = EnumState.S29;
+                            if (Character.isDigit(_Str.charAt(_Pos))) {
+                                if (_Pos > 0 && _Str.charAt(_Pos - 1) == ' ') tokenStart = _Pos;
+
+                                if ((_Pos - tokenStart + 1) > 10){
+                                    SetError(Err.IntLongExceptions, _Pos);
+                                    state = EnumState.Error;
+                                }
+                                else {
+                                    state = EnumState.S28;
+                                }
+                            }
+                            else if (_Str.charAt(_Pos) == ' ') {
+                                SemanticAnalizator.addConstant(_Str.substring(tokenStart, _Pos), tokenStart);
+                                state = EnumState.S28b;
+                            }
+                            else if (_Str.charAt(_Pos) == ']') {
+                                SemanticAnalizator.addConstant(_Str.substring(tokenStart, _Pos), tokenStart);
+                                state = EnumState.S29;
+                            }
                             else { SetError(Err.DigitRBracketExceptions, _Pos); state = EnumState.Error; }
                             break;
 
@@ -394,19 +566,60 @@ class Result{
                             break;
 
                         case EnumState.S30:
+                            tokenStart = _Pos;
                             if (_Str.charAt(_Pos) == ' ') state = EnumState.S30;
+                            else if (Character.isDigit(_Str.charAt(_Pos))) state = EnumState.S36;
                             else if ((Character.isLetterOrDigit(_Str.charAt(_Pos))|| (_Str.charAt(_Pos) == '_'))) state = EnumState.S31;
                             else if (_Str.charAt(_Pos) == '-') state = EnumState.S35;
-                            else if (Character.isDigit(_Str.charAt(_Pos))) state = EnumState.S36;
                             else { SetError(Err.LetterDigitUnderSignedException, _Pos); state = EnumState.Error; }
                             break;
 
                         case EnumState.S31:
                             if ((Character.isLetterOrDigit(_Str.charAt(_Pos)) || (_Str.charAt(_Pos) == '_'))) state = EnumState.S31;
-                            else if (_Str.charAt(_Pos) == ' ') state = EnumState.S31b;
-                            else if(_Str.charAt(_Pos) == '[') state = EnumState.S32;
-                            else if (_Str.charAt(_Pos) == '\n') state = EnumState.S50;
-                            else if (_Str.charAt(_Pos) == '+' || _Str.charAt(_Pos) == '-' || _Str.charAt(_Pos) == '*' || _Str.charAt(_Pos) == '/') state = EnumState.S43;
+                            else if (_Str.charAt(_Pos) == ' '){
+                                String name = _Str.substring(tokenStart, _Pos);
+                                if (SemanticAnalizator.isReserved(name)) {
+                                    SetError(Err.ReservedWordExceptions, _Pos);
+                                    state = EnumState.Error;
+                                }
+                                else {
+                                    SemanticAnalizator.addIdentifiers(name, tokenStart);
+                                    state = EnumState.S31b;
+                                }
+                            }
+                            else if(_Str.charAt(_Pos) == '[') {
+                                String name = _Str.substring(tokenStart, _Pos);
+                                if (SemanticAnalizator.isReserved(name)) {
+                                    SetError(Err.ReservedWordExceptions, _Pos);
+                                    state = EnumState.Error;
+                                }
+                                else {
+                                    SemanticAnalizator.addIdentifiers(name, tokenStart);
+                                    state = EnumState.S32;
+                                }
+                            }
+                            else if (_Str.charAt(_Pos) == '\n') {
+                                String name = _Str.substring(tokenStart, _Pos);
+                                if (SemanticAnalizator.isReserved(name)) {
+                                    SetError(Err.ReservedWordExceptions, _Pos);
+                                    state = EnumState.Error;
+                                }
+                                else {
+                                    SemanticAnalizator.addIdentifiers(name, tokenStart);
+                                    state = EnumState.S50;
+                                }
+                            }
+                            else if (_Str.charAt(_Pos) == '+' || _Str.charAt(_Pos) == '-' || _Str.charAt(_Pos) == '*' || _Str.charAt(_Pos) == '/') {
+                                String name = _Str.substring(tokenStart, _Pos);
+                                if (SemanticAnalizator.isReserved(name)) {
+                                    SetError(Err.ReservedWordExceptions, _Pos);
+                                    state = EnumState.Error;
+                                }
+                                else {
+                                    SemanticAnalizator.addIdentifiers(name, tokenStart);
+                                    state = EnumState.S43;
+                                }
+                            }
                             else { SetError(Err.LetterDigitUnderLBracketNewLineExceptions, _Pos); state = EnumState.Error; }
                             break;
 
@@ -422,18 +635,57 @@ class Result{
                             else { SetError(Err.LBracketAssignNewLineSignedExceptions, _Pos); state = EnumState.Error; }
                             break;
 
-                        case EnumState.S32, EnumState.S32b:
+                        case EnumState.S32:
                             if (_Str.charAt(_Pos) == ' ') state = EnumState.S32b;
-                            else if (Character.isLetterOrDigit(_Str.charAt(_Pos)) || _Str.charAt(_Pos) == '_') state = EnumState.S63;
+                            else if (Character.isDigit(_Str.charAt(_Pos))) {
+                                tokenStart = _Pos;
+                                state = EnumState.S33;
+                            }
+                            else if (Character.isLetterOrDigit(_Str.charAt(_Pos)) || _Str.charAt(_Pos) == '_'){
+                                tokenStart = _Pos;
+                                state = EnumState.S63;
+                            }
+                            else if (_Str.charAt(_Pos) == '-') {
+                                tokenStart = _Pos;
+                                state = EnumState.S61;
+                            }
+                            else { SetError(Err.LetterDigitUnderSignedException, _Pos); state = EnumState.Error; }
+                            break;
+
+                        case EnumState.S32b:
+                            if (_Str.charAt(_Pos) == ' ') state = EnumState.S32b;
+                            else if (Character.isDigit(_Str.charAt(_Pos))) {
+                                tokenStart = _Pos;
+                                state = EnumState.S33;
+                            }
+                            else if (Character.isLetterOrDigit(_Str.charAt(_Pos)) || _Str.charAt(_Pos) == '_') {
+                                tokenStart = _Pos;
+                                state = EnumState.S63;
+                            }
                             else if (_Str.charAt(_Pos) == '-') state = EnumState.S61;
-                            else if (Character.isDigit(_Str.charAt(_Pos))) state = EnumState.S33;
                             else { SetError(Err.LetterDigitUnderSignedException, _Pos); state = EnumState.Error; }
                             break;
 
                         case EnumState.S33:
-                            if (Character.isDigit(_Str.charAt(_Pos))) state = EnumState.S33;
-                            else if (_Str.charAt(_Pos) == ' ') state = EnumState.S33b;
-                            else if (_Str.charAt(_Pos) == ']') state = EnumState.S42;
+                            if (Character.isDigit(_Str.charAt(_Pos))){
+                                if (_Pos > 0 && _Str.charAt(_Pos - 1) == ' ') tokenStart = _Pos;
+
+                                if ((_Pos - tokenStart + 1) > 10){
+                                    SetError(Err.IntLongExceptions, _Pos);
+                                    state = EnumState.Error;
+                                }
+                                else {
+                                    state = EnumState.S33;
+                                }
+                            }
+                            else if (_Str.charAt(_Pos) == ' ') {
+                                SemanticAnalizator.addConstant(_Str.substring(tokenStart, _Pos), tokenStart);
+                                state = EnumState.S33b;
+                            }
+                            else if (_Str.charAt(_Pos) == ']') {
+                                SemanticAnalizator.addConstant(_Str.substring(tokenStart, _Pos), tokenStart);
+                                state = EnumState.S42;
+                            }
                             else { SetError(Err.DigitRBracketExceptions, _Pos); state = EnumState.Error; }
                             break;
 
@@ -450,10 +702,38 @@ class Result{
                             break;
 
                         case EnumState.S63:
-                            if (Character.isLetterOrDigit(_Str.charAt(_Pos)) || _Str.charAt(_Pos) == '_') state = EnumState.S63;
-                            else if (_Str.charAt(_Pos) == ' ') state = EnumState.S63b;
-                            else if (_Str.charAt(_Pos) == ']') state = EnumState.S42;
-                            else { SetError(Err.LetterDigitUnderRBracketExceptions, _Pos); state = EnumState.Error; }
+                            if (Character.isLetterOrDigit(_Str.charAt(_Pos)) || _Str.charAt(_Pos) == '_') {
+                                if (Character.isWhitespace(_Str.charAt(tokenStart))){
+                                    tokenStart = _Pos;
+                                }
+                                state = EnumState.S63;
+                            }
+                            else if (_Str.charAt(_Pos) == ' ') {
+                                String name = _Str.substring(tokenStart, _Pos);
+                                if (SemanticAnalizator.isReserved(name)) {
+                                    SetError(Err.ReservedWordExceptions, _Pos);
+                                    state = EnumState.Error;
+                                }
+                                else {
+                                    SemanticAnalizator.addIdentifiers(name, tokenStart);
+                                    state = EnumState.S63b;
+                                }
+                            }
+                            else if (_Str.charAt(_Pos) == ']') {
+                                String name = _Str.substring(tokenStart, _Pos);
+                                if (SemanticAnalizator.isReserved(name)) {
+                                    SetError(Err.ReservedWordExceptions, _Pos);
+                                    state = EnumState.Error;
+                                }
+                                else {
+                                    SemanticAnalizator.addIdentifiers(name, tokenStart);
+                                    state = EnumState.S42;
+                                }
+                            }
+                            else {
+                                SetError(Err.LetterDigitUnderRBracketExceptions, _Pos);
+                                state = EnumState.Error;
+                            }
                             break;
 
                         case EnumState.S63b:
@@ -493,8 +773,14 @@ class Result{
                         case EnumState.S43:
                             if (_Str.charAt(_Pos) == ' ') state = EnumState.S47;
                             else if (Character.isLetter(_Str.charAt(_Pos)) || _Str.charAt(_Pos) == '_') state = EnumState.S31;
-                            else if (Character.isDigit(_Str.charAt(_Pos))) state = EnumState.S36;
-                            else if (_Str.charAt(_Pos) == '-') state = EnumState.S35;
+                            else if (Character.isDigit(_Str.charAt(_Pos))){
+                                tokenStart = _Pos;
+                                state = EnumState.S36;
+                            }
+                            else if (_Str.charAt(_Pos) == '-') {
+                                tokenStart = _Pos;
+                                state = EnumState.S35;
+                            }
                             else { SetError(Err.LetterDigitUnderSignedException, _Pos); state = EnumState.Error; }
                             break;
 
@@ -502,7 +788,10 @@ class Result{
                             if ((Character.isLetter(_Str.charAt(_Pos))|| (_Str.charAt(_Pos) == '_'))) state = EnumState.S31;
                             else if (_Str.charAt(_Pos) == ' ') state = EnumState.S42;
                             else if (_Str.charAt(_Pos) == '-') state = EnumState.S35;
-                            else if ((Character.isDigit(_Str.charAt(_Pos)))) state = EnumState.S36;
+                            else if ((Character.isDigit(_Str.charAt(_Pos)))){
+                                tokenStart = _Pos;
+                                state = EnumState.S36;
+                            }
                             else { SetError(Err.LetterDigitUnderSignedException, _Pos); state = EnumState.Error; }
                             break;
 
@@ -512,12 +801,29 @@ class Result{
                             break;
 
                         case EnumState.S36:
-                            if ((Character.isDigit(_Str.charAt(_Pos)))) state = EnumState.S36;
+                            if ((Character.isDigit(_Str.charAt(_Pos)))) {
+                                if ((_Pos - tokenStart + 1) > 10){
+                                    SetError(Err.IntLongExceptions, _Pos);
+                                    state = EnumState.Error;
+                                }
+                                else{
+                                    state = EnumState.S36;
+                                }
+                            }
                             else if (_Str.charAt(_Pos) == '.') state = EnumState.S37;
                             else if ((_Str.charAt(_Pos) == 'e') || (_Str.charAt(_Pos) == 'E')) state = EnumState.S39;
-                            else if (_Str.charAt(_Pos) == ' ') state = EnumState.S42;
-                            else if (_Str.charAt(_Pos) == '\n') state = EnumState.S50;
-                            else if (_Str.charAt(_Pos) == '+' || _Str.charAt(_Pos) == '-' || _Str.charAt(_Pos) == '*' || _Str.charAt(_Pos) == '/') state = EnumState.S43;
+                            else if (_Str.charAt(_Pos) == ' ') {
+                                SemanticAnalizator.addConstant(_Str.substring(tokenStart, _Pos), tokenStart);
+                                state = EnumState.S42;
+                            }
+                            else if (_Str.charAt(_Pos) == '\n') {
+                                SemanticAnalizator.addConstant(_Str.substring(tokenStart, _Pos), tokenStart);
+                                state = EnumState.S50;
+                            }
+                            else if (_Str.charAt(_Pos) == '+' || _Str.charAt(_Pos) == '-' || _Str.charAt(_Pos) == '*' || _Str.charAt(_Pos) == '/') {
+                                SemanticAnalizator.addConstant(_Str.substring(tokenStart, _Pos), tokenStart);
+                                state = EnumState.S43;
+                            }
                             else { SetError(Err.DigitDotEnewLineSignedExceptions, _Pos); state = EnumState.Error; }
                             break;
 
@@ -536,7 +842,7 @@ class Result{
                             break;
 
                         case EnumState.S39:
-                            if ((_Str.charAt(_Pos) == '+') || (_Str.charAt(_Pos) == '-')) state = EnumState.S40;
+                            if ((_Str.charAt(_Pos) == '+') || (_Str.charAt(_Pos) == '-'))  state = EnumState.S40;
                             else if ((Character.isDigit(_Str.charAt(_Pos)))) state = EnumState.S41;
                             else { SetError(Err.SignedDigitExceptions, _Pos); state = EnumState.Error; }
                             break;
@@ -602,8 +908,9 @@ class Result{
                             break;
 
                         case EnumState.S58:
-                            if ((Character.isLetterOrDigit(_Str.charAt(_Pos))|| (_Str.charAt(_Pos) == '_'))) state = EnumState.S65;
-                            else if (Character.isDigit(_Str.charAt(_Pos))) state = EnumState.S70;
+                            tokenStart = _Pos;
+                            if (Character.isDigit(_Str.charAt(_Pos))) state = EnumState.S70;
+                            else if ((Character.isLetterOrDigit(_Str.charAt(_Pos))|| (_Str.charAt(_Pos) == '_'))) state = EnumState.S65;
                             else if (_Str.charAt(_Pos) == '-') state = EnumState.S71;
                             else if (_Str.charAt(_Pos) == ' ') state = EnumState.S58;
                             else { SetError(Err.LetterDigitUnderSignedException, _Pos); state = EnumState.Error; }
@@ -611,24 +918,105 @@ class Result{
 
                         case EnumState.S65:
                             if ((Character.isLetterOrDigit(_Str.charAt(_Pos))|| (_Str.charAt(_Pos) == '_'))) state = EnumState.S65;
-                            else if (_Str.charAt(_Pos) == '[') state = EnumState.S66;
-                            else if (_Str.charAt(_Pos) == ' ') state = EnumState.S77;
-                            else if (_Str.charAt(_Pos) == '\n') state = EnumState.S59;
+                            else if (_Str.charAt(_Pos) == '[') {
+                                String name = _Str.substring(tokenStart, _Pos);
+                                if (SemanticAnalizator.isReserved(name)) {
+                                    SetError(Err.ReservedWordExceptions, _Pos);
+                                    state = EnumState.Error;
+                                }
+                                else {
+                                    SemanticAnalizator.addIdentifiers(name, tokenStart);
+                                    state = EnumState.S66;
+                                }
+                            }
+                            else if (_Str.charAt(_Pos) == ' ') {
+                                String name = _Str.substring(tokenStart, _Pos);
+                                if (SemanticAnalizator.isReserved(name)) {
+                                    SetError(Err.ReservedWordExceptions, _Pos);
+                                    state = EnumState.Error;
+                                }
+                                else {
+                                    SemanticAnalizator.addIdentifiers(name, tokenStart);
+                                    state = EnumState.S77;
+                                }
+                            }
+                            else if (_Str.charAt(_Pos) == '\n') {
+                                String name = _Str.substring(tokenStart, _Pos);
+                                if (SemanticAnalizator.isReserved(name)) {
+                                    SetError(Err.ReservedWordExceptions, _Pos);
+                                    state = EnumState.Error;
+                                }
+                                else {
+                                    SemanticAnalizator.addIdentifiers(name, tokenStart);
+                                    state = EnumState.S59;
+                                }
+                            }
                             else { SetError(Err.LetterDigitUnderLBracketExceptions, _Pos); state = EnumState.Error; }
                             break;
 
-                        case EnumState.S66, EnumState.S66b:
+                        case EnumState.S66:
                             if (_Str.charAt(_Pos) == ' ') state = EnumState.S66b;
-                            else if (Character.isLetterOrDigit(_Str.charAt(_Pos)) || _Str.charAt(_Pos) == '_') state = EnumState.S68;
-                            else if (_Str.charAt(_Pos) == '-') state = EnumState.S85;
-                            else if (Character.isDigit(_Str.charAt(_Pos))) state = EnumState.S67;
+                            else if (Character.isDigit(_Str.charAt(_Pos))) {
+                                tokenStart = _Pos;
+                                state = EnumState.S67;
+                            }
+                            else if (Character.isLetterOrDigit(_Str.charAt(_Pos)) || _Str.charAt(_Pos) == '_') {
+                                tokenStart = _Pos;
+                                state = EnumState.S68;
+                            }
+                            else if (_Str.charAt(_Pos) == '-') {
+                                tokenStart = _Pos;
+                                state = EnumState.S85;
+                            }
+                            else { SetError(Err.LetterDigitUnderSignedException, _Pos); state = EnumState.Error; }
+                            break;
+
+                        case EnumState.S66b:
+                            if (_Str.charAt(_Pos) == ' ') state = EnumState.S66b;
+                            else if (Character.isDigit(_Str.charAt(_Pos))) {
+                                tokenStart = _Pos;
+                                state = EnumState.S67;
+                            }
+                            else if (Character.isLetterOrDigit(_Str.charAt(_Pos)) || _Str.charAt(_Pos) == '_') {
+                                tokenStart = _Pos;
+                                state = EnumState.S68;
+                            }
+                            else if (_Str.charAt(_Pos) == '-') {
+                                tokenStart = _Pos;
+                                state = EnumState.S85;
+                            }
                             else { SetError(Err.LetterDigitUnderSignedException, _Pos); state = EnumState.Error; }
                             break;
 
                         case EnumState.S68:
-                            if (Character.isLetterOrDigit(_Str.charAt(_Pos)) || _Str.charAt(_Pos) == '_') state = EnumState.S68;
-                            else if (_Str.charAt(_Pos) == ' ') state = EnumState.S68b;
-                            else if (_Str.charAt(_Pos) == ']') state = EnumState.S69;
+                            if (Character.isLetterOrDigit(_Str.charAt(_Pos)) || _Str.charAt(_Pos) == '_') {
+                                if (Character.isWhitespace(_Str.charAt(tokenStart))){
+                                    tokenStart = _Pos;
+                                }
+                                state = EnumState.S68;
+                            }
+                            else if (_Str.charAt(_Pos) == ' ') {
+                                String name = _Str.substring(tokenStart, _Pos);
+                                if (SemanticAnalizator.isReserved(name)) {
+                                    SetError(Err.ReservedWordExceptions, _Pos);
+                                    state = EnumState.Error;
+                                }
+                                else {
+                                    SemanticAnalizator.addIdentifiers(name, tokenStart);
+                                    state = EnumState.S68b;
+                                }
+                            }
+                            else if (_Str.charAt(_Pos) == ']') {
+                                String name = _Str.substring(tokenStart, _Pos);
+                                if (SemanticAnalizator.isReserved(name)) {
+                                    SetError(Err.ReservedWordExceptions, _Pos);
+                                    state = EnumState.Error;
+                                }
+                                else {
+                                    SemanticAnalizator.addIdentifiers(name, tokenStart);
+                                    state = EnumState.S69;
+                                }
+                            }
                             else { SetError(Err.LetterUnderSpaceRBracketExceptions, _Pos); state = EnumState.Error; }
                             break;
 
@@ -638,16 +1026,38 @@ class Result{
                             else { SetError(Err.RBracketExpected, _Pos); state = EnumState.Error; }
                             break;
 
-                        case EnumState.S85, EnumState.S85b:
+                        case EnumState.S85:
+                            if (_Str.charAt(_Pos) == ' ') state = EnumState.S85b;
+                            else if (Character.isDigit(_Str.charAt(_Pos))) state = EnumState.S67;
+                            else { SetError(Err.DigitExceptions, _Pos); state = EnumState.Error; }
+                            break;
+
+                        case EnumState.S85b:
                             if (_Str.charAt(_Pos) == ' ') state = EnumState.S85b;
                             else if (Character.isDigit(_Str.charAt(_Pos))) state = EnumState.S67;
                             else { SetError(Err.DigitExceptions, _Pos); state = EnumState.Error; }
                             break;
 
                         case EnumState.S67:
-                            if (Character.isDigit(_Str.charAt(_Pos))) state = EnumState.S67;
-                            else if (_Str.charAt(_Pos) == ' ') state = EnumState.S67b;
-                            else if (_Str.charAt(_Pos) == ']') state = EnumState.S69;
+                            if (Character.isDigit(_Str.charAt(_Pos))) {
+                                if (_Pos > 0 && _Str.charAt(_Pos - 1) == ' ') tokenStart = _Pos;
+
+                                if ((_Pos - tokenStart + 1) > 10){
+                                    SetError(Err.IntLongExceptions, _Pos);
+                                    state = EnumState.Error;
+                                }
+                                else {
+                                    state = EnumState.S67;
+                                }
+                            }
+                            else if (_Str.charAt(_Pos) == ' ') {
+                                SemanticAnalizator.addConstant(_Str.substring(tokenStart, _Pos), tokenStart);
+                                state = EnumState.S67b;
+                            }
+                            else if (_Str.charAt(_Pos) == ']') {
+                                SemanticAnalizator.addConstant(_Str.substring(tokenStart, _Pos), tokenStart);
+                                state = EnumState.S69;
+                            }
                             else { SetError(Err.DigitRBracketExceptions, _Pos); state = EnumState.Error; }
                             break;
 
@@ -688,18 +1098,30 @@ class Result{
 
                         case EnumState.S78:
                             if (_Str.charAt(_Pos) == ' ') state = EnumState.S83;
+                            else if (Character.isDigit(_Str.charAt(_Pos))){
+                                tokenStart = _Pos;
+                                state = EnumState.S70;
+                            }
                             else if (Character.isLetterOrDigit(_Str.charAt(_Pos)) || _Str.charAt(_Pos) == '_') state = EnumState.S65;
-                            else if (Character.isDigit(_Str.charAt(_Pos))) state = EnumState.S70;
-                            else if (_Str.charAt(_Pos) == '-') state = EnumState.S71;
+                            else if (_Str.charAt(_Pos) == '-') {
+                                tokenStart = _Pos;
+                                state = EnumState.S71;
+                            }
                             else { SetError(Err.IndentExceptions, _Pos); state = EnumState.Error; }
                             break;
 
                         case EnumState.S83:
                             if (_Str.charAt(_Pos) == ' ') state = EnumState.S83;
                             else if (_Str.charAt(_Pos) == '\n') state = EnumState.S59;
+                            else if (Character.isDigit(_Str.charAt(_Pos))){
+                                tokenStart = _Pos;
+                                state = EnumState.S70;
+                            }
                             else if (Character.isLetterOrDigit(_Str.charAt(_Pos)) || _Str.charAt(_Pos) == '_') state = EnumState.S65;
-                            else if (Character.isDigit(_Str.charAt(_Pos))) state = EnumState.S70;
-                            else if (_Str.charAt(_Pos) == '-') state = EnumState.S71;
+                            else if (_Str.charAt(_Pos) == '-') {
+                                tokenStart = _Pos;
+                                state = EnumState.S71;
+                            }
                             else { SetError(Err.LetterDigitUnderSignedException, _Pos); state = EnumState.Error; }
                             break;
 
@@ -709,12 +1131,29 @@ class Result{
                             break;
 
                         case EnumState.S70:
-                            if ((Character.isDigit(_Str.charAt(_Pos)))) state = EnumState.S70;
+                            if ((Character.isDigit(_Str.charAt(_Pos)))) {
+                                if ((_Pos - tokenStart + 1) > 10){
+                                    SetError(Err.IntLongExceptions, _Pos);
+                                    state = EnumState.Error;
+                                }
+                                else {
+                                    state = EnumState.S70;
+                                }
+                            }
                             else if (_Str.charAt(_Pos) == '.') state = EnumState.S72;
                             else if ((_Str.charAt(_Pos) == 'e') || (_Str.charAt(_Pos) == 'E')) state = EnumState.S74;
-                            else if (_Str.charAt(_Pos) == ' ') state = EnumState.S77;
-                            else if (_Str.charAt(_Pos) == '\n') state = EnumState.S59;
-                            else if (_Str.charAt(_Pos) == '+' || _Str.charAt(_Pos) == '-' || _Str.charAt(_Pos) == '*' || _Str.charAt(_Pos) == '/') state = EnumState.S78;
+                            else if (_Str.charAt(_Pos) == ' ') {
+                                SemanticAnalizator.addConstant(_Str.substring(tokenStart, _Pos), tokenStart);
+                                state = EnumState.S77;
+                            }
+                            else if (_Str.charAt(_Pos) == '\n') {
+                                SemanticAnalizator.addConstant(_Str.substring(tokenStart, _Pos), tokenStart);
+                                state = EnumState.S59;
+                            }
+                            else if (_Str.charAt(_Pos) == '+' || _Str.charAt(_Pos) == '-' || _Str.charAt(_Pos) == '*' || _Str.charAt(_Pos) == '/') {
+                                SemanticAnalizator.addConstant(_Str.substring(tokenStart, _Pos), tokenStart);
+                                state = EnumState.S78;
+                            }
                             else { SetError(Err.DigitDotEnewLineSignedExceptions, _Pos); state = EnumState.Error; }
                             break;
 
@@ -781,12 +1220,14 @@ public class Analizator{
         }
 
         String test = "def get_state ( sym:int,set,fag):\n" +
-                "\tcount =  data [ -1 ]  * 10e+2 + data [ sym ] + data[ -12 ] \n" +
+                "\tcount =  data [ -1 ]  * 10e+2 + data [ sym ] + data[-12 ] \n" +
                 "\tcount = count + flag \n" +
                 "\treturn count[ 10 ] / 25  \n\n";
 
         Result r = Result.CheckFunctionDef.Check(test);
         System.out.println(r.ErrPosition() + ": " + r.ErrMessage());
+
+        //про семантику: сначала Digit, потом letterOrDigit, чтобы константы не попадали в идентификаторы
     }
 }
 /*
