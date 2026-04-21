@@ -1,5 +1,3 @@
-import com.sun.nio.sctp.SendFailedNotification;
-
 import java.util.*;
 
 enum Err{
@@ -361,7 +359,10 @@ class Result{
                             break;
 
                         case EnumState.S22:
-                            if(Character.isLetter(_Str.charAt(_Pos)) || (_Str.charAt(_Pos) == '_')) state = EnumState.S9;
+                            if(Character.isLetter(_Str.charAt(_Pos)) || (_Str.charAt(_Pos) == '_')) {
+                                tokenStart = _Pos;
+                                state = EnumState.S9;
+                            }
                             else if (_Str.charAt(_Pos) == ' ') state = EnumState.S22;
                             else { SetError(Err.LetterUnderExceptions, _Pos); state = EnumState.Error; }
                             break;
@@ -379,8 +380,13 @@ class Result{
                             break;
 
                         case EnumState.S24:
-                            if (_Str.charAt(_Pos) == '\t') state = EnumState.S25;
-                            else { SetError(Err.TabExceptions, _Pos); state = EnumState.Error; }
+                            if (_Str.charAt(_Pos) == ' ' || _Str.charAt(_Pos) == '\t') {
+                                state = EnumState.S51;
+                            }
+                            else {
+                                SetError(Err.TabExceptions, _Pos);
+                                state = EnumState.Error;
+                            }
                             break;
 
                         case EnumState.S25:
@@ -478,8 +484,7 @@ class Result{
                             break;
 
                         case EnumState.S62:
-                            if (_Str.charAt(_Pos) == ' ') state = EnumState.S62b;
-                            else if (Character.isDigit(_Str.charAt(_Pos))) state = EnumState.S28;
+                            if (Character.isDigit(_Str.charAt(_Pos))) state = EnumState.S28;
                             else { SetError(Err.DigitExceptions, _Pos); state = EnumState.Error; }
                             break;
 
@@ -662,7 +667,9 @@ class Result{
                                 tokenStart = _Pos;
                                 state = EnumState.S63;
                             }
-                            else if (_Str.charAt(_Pos) == '-') state = EnumState.S61;
+                            else if (_Str.charAt(_Pos) == '-') {
+                                tokenStart = _Pos;
+                                state = EnumState.S61; }
                             else { SetError(Err.LetterDigitUnderSignedException, _Pos); state = EnumState.Error; }
                             break;
 
@@ -696,8 +703,7 @@ class Result{
                             break;
 
                         case EnumState.S61, EnumState.S61b:
-                            if (_Str.charAt(_Pos) == ' ') state = EnumState.S61b;
-                            else if (Character.isDigit(_Str.charAt(_Pos))) state = EnumState.S33;
+                            if (Character.isDigit(_Str.charAt(_Pos))) state = EnumState.S33;
                             else { SetError(Err.DigitExceptions, _Pos); state = EnumState.Error; }
                             break;
 
@@ -755,8 +761,16 @@ class Result{
                             break;
 
                         case EnumState.S60:
-                            if (_Str.charAt(_Pos) == '\t') state = EnumState.S51;
-                            else { SetError(Err.TabExceptions, _Pos); state = EnumState.Error; }
+                            if (_Str.charAt(_Pos) == ' ' || _Str.charAt(_Pos) == '\t') {
+                                state = EnumState.S51;
+                            }
+                            else if (_Str.charAt(_Pos) == '\n') {
+                                state = EnumState.S59;
+                            }
+                            else {
+                                SetError(Err.TabExceptions, _Pos);
+                                state = EnumState.Error;
+                            }
                             break;
 
                         case EnumState.S46, EnumState.S48:
@@ -785,7 +799,10 @@ class Result{
                             break;
 
                         case EnumState.S47:
-                            if ((Character.isLetter(_Str.charAt(_Pos))|| (_Str.charAt(_Pos) == '_'))) state = EnumState.S31;
+                            if ((Character.isLetter(_Str.charAt(_Pos))|| (_Str.charAt(_Pos) == '_'))) {
+                                tokenStart = _Pos;
+                                state = EnumState.S31;
+                            }
                             else if (_Str.charAt(_Pos) == ' ') state = EnumState.S42;
                             else if (_Str.charAt(_Pos) == '-') state = EnumState.S35;
                             else if ((Character.isDigit(_Str.charAt(_Pos)))){
@@ -796,7 +813,7 @@ class Result{
                             break;
 
                         case EnumState.S35:
-                            if ((Character.isDigit(_Str.charAt(_Pos)))) state = EnumState.S36;
+                            if (Character.isDigit(_Str.charAt(_Pos))) state = EnumState.S36;
                             else { SetError(Err.DigitExceptions, _Pos); state = EnumState.Error; }
                             break;
 
@@ -861,15 +878,37 @@ class Result{
                             break;
 
                         case EnumState.S50:
-                            if (_Str.charAt(_Pos) == '\t') state = EnumState.S51;
-                            else { SetError(Err.TabExceptions, _Pos); state = EnumState.Error; }
+                            if (_Str.charAt(_Pos) == ' ' || _Str.charAt(_Pos) == '\t') {
+                                state = EnumState.S51;
+                            }
+                            else if (_Str.charAt(_Pos) == '\n') {
+                                state = EnumState.S59;
+                            }
+                            else {
+                                SetError(Err.TabExceptions, _Pos);
+                                state = EnumState.Error;
+                            }
                             break;
 
                         case EnumState.S51:
-                            if (_Str.charAt(_Pos) == '\n') state = EnumState.S59;
-                            else if ((Character.isLetter(_Str.charAt(_Pos)) || (_Str.charAt(_Pos) == '_')) && !(_Str.charAt(_Pos) == 'r')) state = EnumState.S26;
-                            else if (_Str.charAt(_Pos) == 'r') state = EnumState.S52;
-                            else { SetError(Err.ControlNewLineExceptions, _Pos); state = EnumState.Error; }
+                            if (_Str.charAt(_Pos) == ' ' || _Str.charAt(_Pos) == '\t') {
+                                state = EnumState.S51;
+                            }
+                            else if (_Str.charAt(_Pos) == '\n') {
+                                state = EnumState.S59;
+                            }
+                            else if (Character.isLetter(_Str.charAt(_Pos)) || _Str.charAt(_Pos) == '_') {
+                                tokenStart = _Pos;
+                                if (_Str.charAt(_Pos) == 'r') {
+                                    state = EnumState.S52;
+                                } else {
+                                    state = EnumState.S26;
+                                }
+                            }
+                            else {
+                                SetError(Err.ControlNewLineExceptions, _Pos);
+                                state = EnumState.Error;
+                            }
                             break;
 
                         case EnumState.S52:
@@ -1027,8 +1066,7 @@ class Result{
                             break;
 
                         case EnumState.S85:
-                            if (_Str.charAt(_Pos) == ' ') state = EnumState.S85b;
-                            else if (Character.isDigit(_Str.charAt(_Pos))) state = EnumState.S67;
+                            if (Character.isDigit(_Str.charAt(_Pos))) state = EnumState.S67;
                             else { SetError(Err.DigitExceptions, _Pos); state = EnumState.Error; }
                             break;
 
@@ -1098,11 +1136,11 @@ class Result{
 
                         case EnumState.S78:
                             if (_Str.charAt(_Pos) == ' ') state = EnumState.S83;
-                            else if (Character.isDigit(_Str.charAt(_Pos))){
+                            else if (Character.isDigit(_Str.charAt(_Pos))) state = EnumState.S70;
+                            else if (Character.isLetterOrDigit(_Str.charAt(_Pos)) || _Str.charAt(_Pos) == '_') {
                                 tokenStart = _Pos;
-                                state = EnumState.S70;
+                                state = EnumState.S65;
                             }
-                            else if (Character.isLetterOrDigit(_Str.charAt(_Pos)) || _Str.charAt(_Pos) == '_') state = EnumState.S65;
                             else if (_Str.charAt(_Pos) == '-') {
                                 tokenStart = _Pos;
                                 state = EnumState.S71;
@@ -1117,7 +1155,10 @@ class Result{
                                 tokenStart = _Pos;
                                 state = EnumState.S70;
                             }
-                            else if (Character.isLetterOrDigit(_Str.charAt(_Pos)) || _Str.charAt(_Pos) == '_') state = EnumState.S65;
+                            else if (Character.isLetterOrDigit(_Str.charAt(_Pos)) || _Str.charAt(_Pos) == '_') {
+                                tokenStart = _Pos;
+                                state = EnumState.S65;
+                            }
                             else if (_Str.charAt(_Pos) == '-') {
                                 tokenStart = _Pos;
                                 state = EnumState.S71;
@@ -1191,9 +1232,16 @@ class Result{
                             break;
 
                         case EnumState.S59:
-                            if (_Str.charAt(_Pos) == '\n') state = EnumState.Final;
-                            else if (_Str.charAt(_Pos) == ' ') state = EnumState.S59;
-                            else { SetError(Err.NewLineExceptions, _Pos); state = EnumState.Error; }
+                            if (_Str.charAt(_Pos) == '\n') {
+                                state = EnumState.Final;
+                            }
+                            else if (_Str.charAt(_Pos) == ' ' || _Str.charAt(_Pos) == '\t') {
+                                state = EnumState.S51;
+                            }
+                            else {
+                                SetError(Err.NewLineExceptions, _Pos);
+                                state = EnumState.Error;
+                            }
                             break;
                     }
                 }
@@ -1208,7 +1256,7 @@ public class Analizator{
 
     public static void main(String[] args) {
         String[] tests = {
-                "def f(x):\n\treturn x[1]\n ",
+                "def f(x):\n\treturn x[1]\n\n",
                 "def test(a:int,b:float):\n\tx = a*2+5\n\treturn x\n\n ",
                 "def get():\n\treturn data[10]\n\n ",
                 "def foo():\n\ty = arr[-1]\n\treturn y\n\n ",
@@ -1219,7 +1267,7 @@ public class Analizator{
             System.out.println( "Тест " + (i+1) + ": " + r.ErrMessage() + "(позиция " + r.ErrPosition() + ") ");
         }
 
-        String test = "def get_state ( sym:int,set,fag):\n" +
+        String test = "def get_state ( sym:int,as,fag):\n" +
                 "\tcount =  data [ -1 ]  * 10e+2 + data [ sym ] + data[-12 ] \n" +
                 "\tcount = count + flag \n" +
                 "\treturn count[ 10 ] / 25  \n\n";
@@ -1446,10 +1494,6 @@ digraph G {
     "27b" -> 62 [label="-"];
     "27b" -> 28 [label="0|...|9"];
 
-    62 -> "62b" [label="space"];
-    "62b" -> "62b" [label="space"];
-    "62b" -> 28 [label="0|...|9"];
-
     28 -> "28b" [label="space"];
     "28b" -> "28b" [label="space"];
     "28b" -> 29 [label="]"];
@@ -1463,10 +1507,6 @@ digraph G {
     "32b" -> 63 [label="a|...|z|_|0|...|9"];
     "32b" -> 61 [label="-"];
     "32b" -> 33 [label="0|...|9"];
-
-    61 -> "61b" [label="space"];
-    "61b" -> "61b" [label="space"];
-    "61b" -> 33 [label="0|...|9"];
 
     33 -> "33b" [label="space"];
     "33b" -> "33b" [label="space"];
@@ -1483,10 +1523,6 @@ digraph G {
     "66b" -> 68 [label="a|...|z|_|0|...|9"];
     "66b" -> 85 [label="-"];
     "66b" -> 67 [label="0|...|9"];
-
-    85 -> "85b" [label="space"];
-    "85b" -> "85b" [label="space"];
-    "85b" -> 67 [label="0|...|9"];
 
     67 -> "67b" [label="space"];
     "67b" -> "67b" [label="space"];
