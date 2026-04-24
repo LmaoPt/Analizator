@@ -852,9 +852,18 @@ class Result{
                         case EnumState.S38:
                             if ((Character.isDigit(_Str.charAt(_Pos)))) state = EnumState.S38;
                             else if ((_Str.charAt(_Pos) == 'e') || (_Str.charAt(_Pos) == 'E')) state = EnumState.S39;
-                            else if (_Str.charAt(_Pos) == ' ') state = EnumState.S42;
-                            else if (_Str.charAt(_Pos) == '\n') state = EnumState.S50;
-                            else if (_Str.charAt(_Pos) == '+' || _Str.charAt(_Pos) == '-' || _Str.charAt(_Pos) == '*' || _Str.charAt(_Pos) == '/') state = EnumState.S43;
+                            else if (_Str.charAt(_Pos) == ' ') {
+                                SemanticAnalizator.addConstant(_Str.substring(tokenStart, _Pos), tokenStart);
+                                state = EnumState.S42;
+                            }
+                            else if (_Str.charAt(_Pos) == '\n') {
+                                SemanticAnalizator.addConstant(_Str.substring(tokenStart, _Pos), tokenStart);
+                                state = EnumState.S50;
+                            }
+                            else if (_Str.charAt(_Pos) == '+' || _Str.charAt(_Pos) == '-' || _Str.charAt(_Pos) == '*' || _Str.charAt(_Pos) == '/') {
+                                SemanticAnalizator.addConstant(_Str.substring(tokenStart, _Pos), tokenStart);
+                                state = EnumState.S43;
+                            }
                             else { SetError(Err.DigitENewLineSignedExceptions, _Pos); state = EnumState.Error; }
                             break;
 
@@ -871,9 +880,18 @@ class Result{
 
                         case EnumState.S41:
                             if ((Character.isDigit(_Str.charAt(_Pos)))) state = EnumState.S41;
-                            else if (_Str.charAt(_Pos) == ' ') state = EnumState.S42;
-                            else if (_Str.charAt(_Pos) == '\n') state = EnumState.S50;
-                            else if (_Str.charAt(_Pos) == '+' || _Str.charAt(_Pos) == '-' || _Str.charAt(_Pos) == '*' || _Str.charAt(_Pos) == '/') state = EnumState.S43;
+                            else if (_Str.charAt(_Pos) == ' ') {
+                                SemanticAnalizator.addConstant(_Str.substring(tokenStart, _Pos), tokenStart);
+                                state = EnumState.S42;
+                            }
+                            else if (_Str.charAt(_Pos) == '\n') {
+                                SemanticAnalizator.addConstant(_Str.substring(tokenStart, _Pos), tokenStart);
+                                state = EnumState.S50;
+                            }
+                            else if (_Str.charAt(_Pos) == '+' || _Str.charAt(_Pos) == '-' || _Str.charAt(_Pos) == '*' || _Str.charAt(_Pos) == '/') {
+                                SemanticAnalizator.addConstant(_Str.substring(tokenStart, _Pos), tokenStart);
+                                state = EnumState.S43;
+                            }
                             else { SetError(Err.DigitNewLineSignedExceptions, _Pos); state = EnumState.Error; }
                             break;
 
@@ -1206,9 +1224,18 @@ class Result{
                         case EnumState.S73:
                             if ((Character.isDigit(_Str.charAt(_Pos)))) state = EnumState.S73;
                             else if ((_Str.charAt(_Pos) == 'e') || (_Str.charAt(_Pos) == 'E')) state = EnumState.S74;
-                            else if (_Str.charAt(_Pos) == ' ') state = EnumState.S77;
-                            else if (_Str.charAt(_Pos) == '\n') state = EnumState.S59;
-                            else if (_Str.charAt(_Pos) == '+' || _Str.charAt(_Pos) == '-' || _Str.charAt(_Pos) == '*' || _Str.charAt(_Pos) == '/') state = EnumState.S78;
+                            else if (_Str.charAt(_Pos) == ' ') {
+                                SemanticAnalizator.addConstant(_Str.substring(tokenStart, _Pos), tokenStart);
+                                state = EnumState.S77;
+                            }
+                            else if (_Str.charAt(_Pos) == '\n') {
+                                SemanticAnalizator.addConstant(_Str.substring(tokenStart, _Pos), tokenStart);
+                                state = EnumState.S59;
+                            }
+                            else if (_Str.charAt(_Pos) == '+' || _Str.charAt(_Pos) == '-' || _Str.charAt(_Pos) == '*' || _Str.charAt(_Pos) == '/') {
+                                SemanticAnalizator.addConstant(_Str.substring(tokenStart, _Pos), tokenStart);
+                                state = EnumState.S78;
+                            }
                             else { SetError(Err.DigitENewLineSignedExceptions, _Pos); state = EnumState.Error; }
                             break;
 
@@ -1225,9 +1252,18 @@ class Result{
 
                         case EnumState.S76:
                             if (Character.isDigit(_Str.charAt(_Pos))) state = EnumState.S76;
-                            else if (_Str.charAt(_Pos) == ' ') state = EnumState.S77;
-                            else if (_Str.charAt(_Pos) == '\n') state = EnumState.S59;
-                            else if (_Str.charAt(_Pos) == '+' || _Str.charAt(_Pos) == '-' || _Str.charAt(_Pos) == '*' || _Str.charAt(_Pos) == '/') state = EnumState.S78;
+                            else if (_Str.charAt(_Pos) == ' ') {
+                                SemanticAnalizator.addConstant(_Str.substring(tokenStart, _Pos), tokenStart);
+                                state = EnumState.S77;
+                            }
+                            else if (_Str.charAt(_Pos) == '\n') {
+                                SemanticAnalizator.addConstant(_Str.substring(tokenStart, _Pos), tokenStart);
+                                state = EnumState.S59;
+                            }
+                            else if (_Str.charAt(_Pos) == '+' || _Str.charAt(_Pos) == '-' || _Str.charAt(_Pos) == '*' || _Str.charAt(_Pos) == '/') {
+                                SemanticAnalizator.addConstant(_Str.substring(tokenStart, _Pos), tokenStart);
+                                state = EnumState.S78;
+                            }
                             else { SetError(Err.DigitNewLineSignedExceptions, _Pos); state = EnumState.Error; }
                             break;
 
